@@ -99,6 +99,32 @@ function usbmidi_driver_init2(devices) {
           console.log("Configuration descriptor:");
           dump_hex(e.data);
 
+          chrome.usb.claimInterface(usbDevice.device, 1, function() {
+            console.log("claimed interface 1?");
+            listen_next_packet();
+          });
+
+
+/*
+          // now select configuration #1
+          // 0x09
+          chrome.usb.controlTransfer(usbDevice.device, 
+                { direction:'in', 
+                  recipient:'device',   // device, interface, endpoint, other
+                   requestType:'standard',  // standard, class, vendor, reserved
+                   request:0x06, // 0x09 "SET_CONFIGURATION"
+                   value:1, // 1 configuration value
+                   index:0,  // 0x0000 
+                  length:64 // 18 bytes ?
+                }, function(e) {
+                  //usbDevice.device_desciptor = e.data;
+                  console.log("SET_CONFIGURATION descriptor:");
+                  dump_hex(e.data);
+                  listen_next_packet();
+                });
+*/
+
+                    
         });
       });
 
@@ -121,7 +147,7 @@ function usbmidi_driver_init2(devices) {
 
 */
 
-  listen_next_packet();
+
   
 }
 
@@ -140,7 +166,7 @@ function listen_next_packet() {
     {direction:'in', endpoint:ep_in, length:64}, function(e) {
       console.log("GOT "+e.data.byteLength+" bytes!");
 
-      //listen_next_packet(); // ...
+      listen_next_packet();
     });
 }
 
