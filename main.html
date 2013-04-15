@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>MIDI Playground</title>
+		<!--<link rel="stylesheet" href="bootstrap/css/bootstrap.min.css" rel='stylesheet' media='screen'>-->
+		<link rel="stylesheet" href="css/usbmidi.css" >
+		<script src='js/usbmidi.js' ></script>
+	</head>
+	<body>
+		<div class="container">
+			<input type='button' value="Connect MIDI Device" id='requestPermissionGN' />
+			<input type='button' value="Disconnect" id='disconnect' />
+			<span id='status'>Disconnected.</span>			
+  		</div>
+  		<div id='console' style="border:1px solid #ccc;font:12px/16px Courier;overflow:auto;">
+		</div>
+
+		<!--<script src='js/jquery.js'></script>
+		<script src='bootstrap/js/bootstrap.min.js'></script>-->
+		<script src='js/midi_test.js'></script>
+	</body>
+</html>
+
+
+
