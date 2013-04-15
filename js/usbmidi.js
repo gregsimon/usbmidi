@@ -122,7 +122,7 @@ function listen_next_packet() {
   
   return;*/
   chrome.usb.bulkTransfer(usbDevice.device,
-    {direction:'in', endpoint:ep_in, length:4}, function(e) {
+    {direction:'in', endpoint:ep_in, length:64}, function(e) {
       console.log("GOT "+e.data.byteLength+" bytes!");
 
       //listen_next_packet(); // ...
