@@ -64,7 +64,7 @@ function usbmidi_driver_init2(devices) {
      Jack and Element.
     */
 
-/*
+
   // Connected. Grab the device descriptor so we know what
   // ports, etc are on this device.
   chrome.usb.controlTransfer(usbDevice.device, 
@@ -72,21 +72,36 @@ function usbmidi_driver_init2(devices) {
         recipient:'device',   // device, interface, endpoint, other
          requestType:'standard',  // standard, class, vendor, reserved
          request:0x6, // 0x06 "GET_DESCRIPTOR"
-         value:0x100, // 0x0100 
+         value:0x100, // 0x0100 device descriptor
          index:0,  // 0x0000 
-        length:0x12 // 18 bytes
+        length:64 // 18 bytes
       }, function(e) {
-        if (e.data.byteLength==18) {
-          var bv = new DataView(e.data);
-          s = "GET_DESCRIPTOR ";
-          for (i=0; i<e.data.byteLength; ++i) {
-            s += (bv.getUint8(i).toString(16) + " ");
-          }
-          console.log(s);
+        usbDevice.device_desciptor = e.data;
+        console.log("device descriptor:");
+        dump_hex(e.data);
 
-        }
+        var dv = new DataView(e.data);
+        usbDevice.numConfigs = dv.getUint8(17);
+        usbDevice.maxPacketSize = dv.getUint8(7);
+        console.log(usbDevice.numConfigs+" configuration(s)");
+
+        // now read the configuration (there may be more than one!)
+          chrome.usb.controlTransfer(usbDevice.device, 
+        { direction:'in', 
+          recipient:'device',   // device, interface, endpoint, other
+           requestType:'standard',  // standard, class, vendor, reserved
+           request:0x06, // 0x06 "GET_CONFIGURATION"
+           value:0x200, // 0x0100 configuration
+           index:0,  // 0x0000 
+          length:64 // 18 bytes ?
+        }, function(e) {
+          usbDevice.device_desciptor = e.data;
+          console.log("Configuration descriptor:");
+          dump_hex(e.data);
+
+        });
       });
-*/
+
 /*
   chrome.usb.controlTransfer(usbDevice.device, 
       { direction:'in', 
@@ -137,6 +152,16 @@ function usbmidi_driver_disconnect() {
   listen_next_packet();
 }
 
+
+function dump_hex(data) {
+  var bv = new DataView(data);
+  var s = "";
+  for (i=0; i<data.byteLength; ++i) {
+    s += (bv.getUint8(i).toString(16) + " ");
+  }
+  console.log(s);
+  return s;
+}
 
 
 
