@@ -1,9 +1,10 @@
 
 
+
 console.log("USB MIDI Class Driver");
 
 var usbDevice = null;  // "global" object for this driver.
-
+var eventCallback = undefined;
 
 // TODO : are these standard?
 var ep_in  = 0x81;
@@ -21,13 +22,13 @@ function usbmidi_driver_disconnect() {
   chrome.usb.closeDevice(usbDevice.device);
 }
 
-function usbmidi_driver_init(vendorId, productId) {
+function usbmidi_driver_init(vendorId, productId, cb) {
   console_element = document.getElementById('console');
   // reset the state machines
   usbDevice = new Object();
   usbDevice.productId = productId;
   usbDevice.vendorId = vendorId;
-
+  eventCallback = cb;
 
   // attempt to connect a device.
   chrome.permissions.request(
@@ -138,28 +139,6 @@ function usbmidi_driver_init2(devices) {
             console.log(" CLAIM INTERFACE...");
             listen_next_packet();
           });
-
-
-/*
-          // now select configuration #1
-          // 0x09
-          chrome.usb.controlTransfer(usbDevice.device,
-                { direction:'in',
-                  recipient:'device',   // device, interface, endpoint, other
-                   requestType:'standard',  // standard, class, vendor, reserved
-                   request:0x06, // 0x09 "SET_CONFIGURATION"
-                   value:1, // 1 configuration value
-                   index:0,  // 0x0000
-                  length:64 // 18 bytes ?
-                }, function(e) {
-                  //usbDevice.device_desciptor = e.data;
-                  console.log("SET_CONFIGURATION descriptor:");
-                  dump_hex(e.data);
-                  listen_next_packet();
-                });
-*/
-
-
         });
       });
 
@@ -172,7 +151,16 @@ function listen_next_packet() {
   // MIDI send 64 byte minimum bulk xfer packet sizes.
   chrome.usb.bulkTransfer(usbDevice.device,
     {direction:'in', endpoint:ep_in, length:64}, function(e) {
-      console.log("***** GOT "+e.data.byteLength+" bytes!");
+      //console.log("***** GOT "+e.data.byteLength+" bytes!");
+
+      var dv = new DataView(e.data);
+      var cableNum = dv.getUint8(0) >> 4;
+      var cin = dv.getUint8(0) & 0xf;
+      //console.log("cable="+cableNum+"  cin="+cin);
+
+      if (eventCallback != undefined) {
+        eventCallback(cin, dv.getUint8(1), dv.getUint8(2), dv.getUint8(3));
+      }
 
       listen_next_packet();
     });
