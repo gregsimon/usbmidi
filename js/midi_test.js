@@ -6,10 +6,9 @@ var disconnectButton = document.getElementById("disconnect");
 
 var audioContext;
 
-var oscillator; //  synth
-var gainNode; // for velocity
-
 var freqMap;
+
+var activeNotes = new Object();
 
 function midiEvent(cin, m0, m1, m2) {
     //console.log(cin+" "+m0+" "+m1+" "+m2);
@@ -17,9 +16,24 @@ function midiEvent(cin, m0, m1, m2) {
       case 0x9: // note ON
       	{
       		var f = keyToFreq(m1);
-      		oscillator.notOff && oscillator.notOff(0);
+
+      		// does an oscillator already exist for this note?
+      		var oscillator = activeNotes[m1];
+      		if (oscillator != undefined) {
+      			oscillator.noteOff && oscillator.noteOff(0);
+      		}
+
+
+      		// create a new oscillator
+      		var oscillator = audioContext.createOscillator();
+			var gainNode = audioContext.createGainNode();  
+			oscillator.connect(gainNode);  
+			gainNode.connect(audioContext.destination); 
+			gainNode.gain.value = 1.0;
+			oscillator.type = 1;
       		oscillator.frequency.value = f;
       		oscillator.noteOn && oscillator.noteOn(0);
+      		activeNotes[m1] = oscillator;
         	console.log(" ON key="+m1+" vel="+m2+"  freq="+f);
 
         }
@@ -27,7 +41,11 @@ function midiEvent(cin, m0, m1, m2) {
 
       case 0x8: // note OFF
       	{
-      		oscillator.noteOff && oscillator.noteOff(0);
+      		var oscillator = activeNotes[m1];
+      		if (oscillator != undefined) {
+      			oscillator.noteOff && oscillator.noteOff(0);
+      			activeNotes[m1] = undefined;
+      		}
         	console.log("OFF key="+m1);
         }
         break;
@@ -39,13 +57,7 @@ requestButtonGN.addEventListener('click', function() {
 
 	// start the audio context
 	audioContext = new webkitAudioContext();//webkit browsers only
-	oscillator = audioContext.createOscillator();
 
-	gainNode = audioContext.createGainNode();  
-	oscillator.connect(gainNode);  
-	gainNode.connect(audioContext.destination); 
-	gainNode.gain.value = 1.0;
-	oscillator.type = 0; // sine wave
 
     // build the frequency map.
 	var freqs = [ 
