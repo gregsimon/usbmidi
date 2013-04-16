@@ -17,6 +17,10 @@ function adb_log(str) {
     console_element.innerText += ("\n" + str);
 }
 
+function usbmidi_driver_disconnect() {
+  chrome.usb.closeDevice(usbDevice.device);
+}
+
 function usbmidi_driver_init(vendorId, productId) {
   console_element = document.getElementById('console');
   // reset the state machines
@@ -56,28 +60,28 @@ function usbmidi_driver_init2(devices) {
         " vendorId=0x"+devices[0].vendorId.toString(16));
   usbDevice.device = devices[0];
 
-  /* The standard interface descriptor characterizes the 
-     interface itself, whereas the class-specific interface descriptor 
-     provides pertinent information concerning the 
-     internals of the USB-MIDI function. It specifies revision level 
-     information and lists the capabilities of each 
+  /* The standard interface descriptor characterizes the
+     interface itself, whereas the class-specific interface descriptor
+     provides pertinent information concerning the
+     internals of the USB-MIDI function. It specifies revision level
+     information and lists the capabilities of each
      Jack and Element.
     */
 
 
   // Connected. Grab the device descriptor so we know what
   // ports, etc are on this device.
-  chrome.usb.controlTransfer(usbDevice.device, 
-      { direction:'in', 
+  chrome.usb.controlTransfer(usbDevice.device,
+      { direction:'in',
         recipient:'device',   // device, interface, endpoint, other
          requestType:'standard',  // standard, class, vendor, reserved
-         request:0x6, // 0x06 "GET_DESCRIPTOR"
+         request:0x6, //  "GET_DESCRIPTOR"
          value:0x100, // 0x0100 device descriptor
-         index:0,  // 0x0000 
+         index:0,  // 0x0000
         length:64 // 18 bytes
       }, function(e) {
         usbDevice.device_desciptor = e.data;
-        console.log("device descriptor:");
+        console.log("DEVICE Descriptor:");
         dump_hex(e.data);
 
         var dv = new DataView(e.data);
@@ -85,22 +89,53 @@ function usbmidi_driver_init2(devices) {
         usbDevice.maxPacketSize = dv.getUint8(7);
         console.log(usbDevice.numConfigs+" configuration(s)");
 
-        // now read the configuration (there may be more than one!)
-          chrome.usb.controlTransfer(usbDevice.device, 
-        { direction:'in', 
+        // now read the configuration (TODO there may be more than one!)
+        chrome.usb.controlTransfer(usbDevice.device,
+        { direction:'in',
           recipient:'device',   // device, interface, endpoint, other
            requestType:'standard',  // standard, class, vendor, reserved
-           request:0x06, // 0x06 "GET_CONFIGURATION"
-           value:0x200, // 0x0100 configuration
-           index:0,  // 0x0000 
-          length:64 // 18 bytes ?
+           request:0x06, //  "GET_CONFIGURATION"
+           value:0x200, //  configuration
+           index:0,  // 0x0000
+          length:64 //  bytes ?
         }, function(e) {
-          usbDevice.device_desciptor = e.data;
+          usbDevice.config_descriptor = e.data;
           console.log("Configuration descriptor:");
           dump_hex(e.data);
 
-          chrome.usb.claimInterface(usbDevice.device, 1, function() {
-            console.log("claimed interface 1?");
+          var dv = new DataView(e.data);
+          usbDevice.numInterfaces = dv.getUint8(4);
+          usbDevice.configValue = dv.getUint8(5);
+          console.log(usbDevice.numInterfaces +
+                " interfaces available! this config # is "+usbDevice.configValue);
+
+/*
+          usbDevice.interfaces = new Array();
+          for (var i=0; i<usbDevice.numInterfaces; ++i) {
+
+            chrome.usb.controlTransfer(usbDevice.device,
+              { direction:'in',
+                recipient:'interface',   // device, interface, endpoint, other
+                 requestType:'standard',  // standard, class, vendor, reserved
+                 request:0x40, // "GET_INTERFACE"
+                 value:0, //
+                 index:i,  // interface index
+                length:1 //  bytes ?
+              }, function(num) { return function(e) {
+                usbDevice.interfaces[num] = e.data;
+                console.log("Interface "+num+" descriptor:");
+                dump_hex(usbDevice.interfaces[num]);
+
+                //var dv = new DataView(e.data);
+              }
+              }(i) );
+
+          } // end for
+          */
+
+
+          chrome.usb.claimInterface(usbDevice.device, 0x1, function() {
+            console.log(" CLAIM INTERFACE...");
             listen_next_packet();
           });
 
@@ -108,13 +143,13 @@ function usbmidi_driver_init2(devices) {
 /*
           // now select configuration #1
           // 0x09
-          chrome.usb.controlTransfer(usbDevice.device, 
-                { direction:'in', 
+          chrome.usb.controlTransfer(usbDevice.device,
+                { direction:'in',
                   recipient:'device',   // device, interface, endpoint, other
                    requestType:'standard',  // standard, class, vendor, reserved
                    request:0x06, // 0x09 "SET_CONFIGURATION"
                    value:1, // 1 configuration value
-                   index:0,  // 0x0000 
+                   index:0,  // 0x0000
                   length:64 // 18 bytes ?
                 }, function(e) {
                   //usbDevice.device_desciptor = e.data;
@@ -124,58 +159,23 @@ function usbmidi_driver_init2(devices) {
                 });
 */
 
-                    
+
         });
       });
 
-/*
-  chrome.usb.controlTransfer(usbDevice.device, 
-      { direction:'in', 
-        recipient:'interface',   // device, interface, endpoint, other
-         requestType:'standard',  // standard, class, vendor, reserved
-         request:0xa, // "GET_INTERFACE"
-         value:0,
-         index:0,
-        length:18
-      }, function(e) {
-        //if (e.data.byteLength==18) {
-          console.log("GET_INTERFACE "+e.data.byteLength);
 
-        //}
-          listen_next_packet();
-      });
-
-*/
-
-
-  
 }
 
 function listen_next_packet() {
-  // Listen for next Packet. MIDI packets are 32-bit bulk transfers.
-/*
-  chrome.usb.interruptTransfer(usbDevice.device,
-    {direction:'in', endpoint:endpoint_out, length:4}, function(e) {
-      console.log("GOT ... " + e.data.byteLength);
 
-      listen_next_packet();
-    });
-  
-  return;*/
+  // Listen for next Packet. MIDI packets are 32-bit bulk transfers.
+  // MIDI send 64 byte minimum bulk xfer packet sizes.
   chrome.usb.bulkTransfer(usbDevice.device,
     {direction:'in', endpoint:ep_in, length:64}, function(e) {
-      console.log("GOT "+e.data.byteLength+" bytes!");
+      console.log("***** GOT "+e.data.byteLength+" bytes!");
 
       listen_next_packet();
     });
-}
-
-function usbmidi_driver_init3() {
-  console.log("usbmidi_driver_init3");
-}
-
-function usbmidi_driver_disconnect() {
-  listen_next_packet();
 }
 
 
@@ -183,174 +183,14 @@ function dump_hex(data) {
   var bv = new DataView(data);
   var s = "";
   for (i=0; i<data.byteLength; ++i) {
-    s += (bv.getUint8(i).toString(16) + " ");
+    s += (d2h(bv.getUint8(i)) + " ");
   }
   console.log(s);
   return s;
 }
 
-
-
-/*
-// This is called when a message has finished being sent.
-// Use the SM to find out what to do next.
-function adb_msg_sent() {
-  adb_log("Starting to listen for a msg...");
-  // actually, we'll just queue a listen here.
-  chrome.usb.bulkTransfer(device.device,
-    {direction:'in', endpoint:0x83, length:24}, function(uevent) {
-      // we should have gotten the header.
-      adb_log("Got header? r="+uevent.resultCode+" "+uevent.data.byteLength+" bytes)");
-
-      // if we got less than 24 bytes, just bail
-      if (uevent.data.byteLength != 24) {
-        setTimeout(adb_msg_sent, 500);
-        return;
-      }
-
-      // parse the header into a new message object
-      var msg = adb_unpack_msg_header(uevent.data);
-
-      adb_log(" payload is next, and should be "+msg.bodySize+" bytes");
-
-      // now phase 2 -- receive the bulk transfer for the body.
-      if (msg.bodySize > 0) {
-        chrome.usb.bulkTransfer(device.device,
-          {direction:'in', endpoint:0x83, length:msg.bodySize},
-          function(uevent) {
-            adb_log("payload got "+uevent.data.byteLength+" bytes  r="+uevent.resultCode);
-            msg.body = uevent.data;
-            adb_process_incoming_msg(msg);
-          });
-
-      } else {
-        // this message is complete, send it for processing.
-        adb_process_incoming_msg(msg);
-      }
-    });
+function d2h(d) {
+  var hex = Number(d).toString(16);
+  hex = "000000".substr(0, 2 - hex.length) + hex;
+  return hex;
 }
-
-// Pack up a message and queue it for sending.
-function adb_queue_outgoing_msg(cmd, arg0, arg1, str) {
-  var msg = adb_pack_msg(cmd, arg0, arg1, str);
-
-  chrome.usb.bulkTransfer(device.device,
-    {direction:'out', endpoint:0x03, data:msg.header}, function(ti) {
-      adb_log("sent header, "+ti.resultCode+" "+msg.header.byteLength+" bytes");
-      chrome.usb.bulkTransfer(device.device,
-        {direction:'out', endpoint:0x03, data:msg.body}, function(ti2) {
-          adb_log("sent body, "+ti2.resultCode+" "+msg.body.byteLength+" bytes");
-          adb_msg_sent();
-        })
-    });
-
-  //adb_log("msg packed, "+msg.header.byteLength+" bytes, "+msg.body.byteLength+" bytes");
-}
-
-function adb_unpack_msg_header(buffer) {
-  var endian = true;
-  var bv = new DataView(buffer);
-
-  var m = {};
-  m.cmd = bv.getUint32(0, endian);
-  m.arg0 = bv.getUint32(4, endian);
-  m.arg1 = bv.getUint32(8, endian);
-  m.bodySize = bv.getUint32(12, endian);
-
-  switch (m.cmd) {
-    case A_SYNC: m.name = "SYNC"; break;
-    case A_CNXN: m.name = "CNXN"; break;
-    case A_OPEN: m.name = "OPEN"; break;
-    case A_OKAY: m.name = "OKAY"; break;
-    case A_CLSE: m.name = "CLSE"; break;
-    case A_WRTE: m.name = "WRTE"; break;
-    case A_AUTH: m.name = "AUTH"; break;
-    default:
-    m.name = "????";
-  }
-
-  adb_log("adb_unpack_msg_header: 0x"+m.cmd.toString(16)+
-    "("+m.name+
-    ") 0x"+m.arg0.toString(16)+
-    " 0x"+m.arg1.toString(16)+
-      "  payload that follows is "+m.bodySize+" bytes ...");
-
-  return m;
-}
-
-function adb_pack_msg(cmd, arg0, arg1, str) {
-  var m = {};
-
- // the string must be interpreted as a string of bytes.
-  var dump_msg = false;
-
-  if (dump_msg)
-    adb_log(" ------ adb_pack_msg ------");
-
-   var payloadBuf = new ArrayBuffer(str.length+1);
-   var sbufView = new Uint8Array(payloadBuf);
-   for (var i=0, strLen=str.length; i<strLen; i++) {
-     sbufView[i] = str.charCodeAt(i);
-   }
-   sbufView[str.length] = 0; // null terminator
-   var crc = crc32(str);
-
-  if (dump_msg) {
-    adb_log( "cmd=0x"+cmd.toString(16)+", 0x"+arg0.toString(16)+", 0x"+arg1.toString(16)+", \""+str+"\"");
-    adb_log(" PACKED string is "+payloadBuf.byteLength+" bytes long  crc="+crc.toString(16)+" -> "+str);
-  }
-
-  var endian = true;
-  var buffer = new ArrayBuffer(24);
-  var bufferView = new DataView(buffer);
-  bufferView.setUint32(0, cmd, endian);
-  bufferView.setUint32(4, arg0, endian);
-  bufferView.setUint32(8, arg1, endian);
-  bufferView.setUint32(12, payloadBuf.byteLength, endian);
-  bufferView.setUint32(16, crc, endian);
-  bufferView.setUint32(20, (cmd ^ 0xffffffff), endian);
-
-  if (dump_msg)
-    adb_log(" PACKED len="+buffer.byteLength+"  checksum="+bufferView.getUint32(20, endian).toString(16));
-
-  m.header = buffer;
-  m.body = payloadBuf;
-
-  return m;
-}
-
-
-
-// Crc32 utils ----------------------------------------------------------------------------
-
-function Utf8Encode(string) {
-    string = string.replace(/\r\n/g,"\n");
-    var utftext = "";
-
-    for (var n = 0; n < string.length; n++) {
-        var c = string.charCodeAt(n);
-        if (c < 128) {
-            utftext += String.fromCharCode(c);
-        } else if((c > 127) && (c < 2048)) {
-            utftext += String.fromCharCode((c >> 6) | 192);
-            utftext += String.fromCharCode((c & 63) | 128);
-        } else {
-            utftext += String.fromCharCode((c >> 12) | 224);
-            utftext += String.fromCharCode(((c >> 6) & 63) | 128);
-            utftext += String.fromCharCode((c & 63) | 128);
-        }
-    }
-    return utftext;
-};
-
-function crc32 (str) {
-    var s = Utf8Encode(str);
-    var c = 0;
-    for (i=0; i<s.length; i++) {
-      c += s.charCodeAt(i);
-    }
-    return c;
-};
-*/
-
-
