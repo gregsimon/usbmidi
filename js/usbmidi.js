@@ -3,7 +3,7 @@
 
 console.log("USB MIDI Class Driver");
 
-var usbDevice = null;  // "global" object for this driver.
+var usbDevice;  // "global" object for this driver.
 var eventCallback = undefined;
 
 // TODO : are these standard?
@@ -108,37 +108,17 @@ function usbmidi_driver_init2(devices) {
           usbDevice.numInterfaces = dv.getUint8(4);
           usbDevice.configValue = dv.getUint8(5);
           console.log(usbDevice.numInterfaces +
-                " interfaces available! this config # is "+usbDevice.configValue);
-
-/*
-          usbDevice.interfaces = new Array();
-          for (var i=0; i<usbDevice.numInterfaces; ++i) {
-
-            chrome.usb.controlTransfer(usbDevice.device,
-              { direction:'in',
-                recipient:'interface',   // device, interface, endpoint, other
-                 requestType:'standard',  // standard, class, vendor, reserved
-                 request:0x40, // "GET_INTERFACE"
-                 value:0, //
-                 index:i,  // interface index
-                length:1 //  bytes ?
-              }, function(num) { return function(e) {
-                usbDevice.interfaces[num] = e.data;
-                console.log("Interface "+num+" descriptor:");
-                dump_hex(usbDevice.interfaces[num]);
-
-                //var dv = new DataView(e.data);
-              }
-              }(i) );
-
-          } // end for
-          */
+                " interfaces available. current selected is #"+usbDevice.configValue);
 
 
-          chrome.usb.claimInterface(usbDevice.device, 0x1, function() {
-            console.log(" CLAIM INTERFACE...");
+          if (usbDevice.configValue != 9999) {
+            chrome.usb.claimInterface(usbDevice.device, 1, function() {
+              console.log("claimed interface ");
+              listen_next_packet();
+            });
+          } else
             listen_next_packet();
-          });
+
         });
       });
 
@@ -146,12 +126,13 @@ function usbmidi_driver_init2(devices) {
 }
 
 function listen_next_packet() {
+  console.log("listening...");
 
   // Listen for next Packet. MIDI packets are 32-bit bulk transfers.
   // MIDI send 64 byte minimum bulk xfer packet sizes.
   chrome.usb.bulkTransfer(usbDevice.device,
     {direction:'in', endpoint:ep_in, length:64}, function(e) {
-      //console.log("***** GOT "+e.data.byteLength+" bytes!");
+      console.log("***** GOT "+e.data.byteLength+" bytes!");
 
       var dv = new DataView(e.data);
       var cableNum = dv.getUint8(0) >> 4;

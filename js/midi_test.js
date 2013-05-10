@@ -2,18 +2,15 @@
 
 
 var requestButtonGN = document.getElementById("requestPermissionGN");
-//var disconnectButton = document.getElementById("disconnect");
 
 var audioContext;
-
 var freqMap;
-
 var synth_oscillator_type = 'square';
 
 var activeNotes = new Object();
 
 function midiEvent(cin, m0, m1, m2) {
-    //console.log(cin+" "+m0+" "+m1+" "+m2);
+    console.log(cin+" "+m0+" "+m1+" "+m2);
     switch(m0 >> 4) {
       case 0x9: // note ON
       	{
@@ -27,9 +24,9 @@ function midiEvent(cin, m0, m1, m2) {
 
       		// create a new oscillator
       		var oscillator = audioContext.createOscillator();
-			var gainNode = audioContext.createGainNode();  
-			oscillator.connect(gainNode);  
-			gainNode.connect(audioContext.destination); 
+			var gainNode = audioContext.createGainNode();
+			oscillator.connect(gainNode);
+			gainNode.connect(audioContext.destination);
 			gainNode.gain.value = m2 / 127.0;
 			oscillator.type = synth_oscillator_type;
       		oscillator.frequency.value = f;
@@ -60,11 +57,11 @@ requestButtonGN.addEventListener('click', function() {
 	usbmidi_driver_init(0x09e8, 0x0076, midiEvent); // AKAI LPK25
 
 	// start the audio context
-	audioContext = new webkitAudioContext();//webkit browsers only
+	audioContext = new webkitAudioContext();
 
 
     // build the frequency map.
-	var freqs = [ 
+	var freqs = [
 		48, 130.81,
 		49,	138.59,
 		50,	146.83,
@@ -97,22 +94,7 @@ requestButtonGN.addEventListener('click', function() {
 		freqMap[freqs[i]] = freqs[i+1];
 	}
 
-	
 
-
-});
-
-document.getElementById('oscSine').addEventListener('click', function() {
-	console.log("sine");
-	synth_oscillator_type = 'sine';
-});
-
-document.getElementById('oscSaw').addEventListener('click', function() {
-	synth_oscillator_type = 'sawtooth';
-});
-
-document.getElementById('oscSquare').addEventListener('click', function() {
-	synth_oscillator_type = 'square';
 });
 
 function keyToFreq(key) {
