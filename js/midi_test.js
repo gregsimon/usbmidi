@@ -44,7 +44,7 @@ function midiEvent(cin, m0, m1, m2) {
       			oscillator.noteOff && oscillator.noteOff(0);
       			activeNotes[m1] = undefined;
       		}
-        	console.log("OFF key="+m1);
+        	//console.log("OFF key="+m1);
         }
         break;
 
@@ -55,6 +55,7 @@ function midiEvent(cin, m0, m1, m2) {
 
 requestButtonGN.addEventListener('click', function() {
 	usbmidi_driver_init(0x09e8, 0x0076, midiEvent); // AKAI LPK25
+	
 
 	// start the audio context
 	audioContext = new webkitAudioContext();

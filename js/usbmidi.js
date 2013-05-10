@@ -38,7 +38,6 @@ function usbmidi_driver_init(vendorId, productId, cb) {
        ]},
        function(result) {
         if (result) {
-          adb_log('App was granted the "usbDevices" permission.');
           chrome.usb.findDevices(
               { "vendorId": usbDevice.vendorId,
                 "productId": usbDevice.productId},
@@ -60,6 +59,7 @@ function usbmidi_driver_init2(devices) {
         devices[0].productId.toString(16) +
         " vendorId=0x"+devices[0].vendorId.toString(16));
   usbDevice.device = devices[0];
+  window.device = devices[0];
 
   /* The standard interface descriptor characterizes the
      interface itself, whereas the class-specific interface descriptor
@@ -82,7 +82,7 @@ function usbmidi_driver_init2(devices) {
         length:64 // 18 bytes
       }, function(e) {
         usbDevice.device_desciptor = e.data;
-        console.log("DEVICE Descriptor:");
+        console.log("Device Descriptor:");
         dump_hex(e.data);
 
         var dv = new DataView(e.data);
@@ -108,16 +108,16 @@ function usbmidi_driver_init2(devices) {
           usbDevice.numInterfaces = dv.getUint8(4);
           usbDevice.configValue = dv.getUint8(5);
           console.log(usbDevice.numInterfaces +
-                " interfaces available. current selected is #"+usbDevice.configValue);
+                " interface(s) available. currently selected is #"+usbDevice.configValue);
 
-
-          if (usbDevice.configValue != 9999) {
-            chrome.usb.claimInterface(usbDevice.device, 1, function() {
+          if (usbDevice.configValue != 1000) {
+            chrome.usb.claimInterface(usbDevice.device, 0x1, function() {
               console.log("claimed interface ");
               listen_next_packet();
             });
-          } else
+          } else {
             listen_next_packet();
+          }
 
         });
       });
@@ -126,10 +126,11 @@ function usbmidi_driver_init2(devices) {
 }
 
 function listen_next_packet() {
-  console.log("listening...");
+  console.log("listen_next_packet - "+usbDevice.device);
 
   // Listen for next Packet. MIDI packets are 32-bit bulk transfers.
-  // MIDI send 64 byte minimum bulk xfer packet sizes.
+  // The control transfer above told us what the size is (TODO).
+  // For now, just assume it's 64 bytes
   chrome.usb.bulkTransfer(usbDevice.device,
     {direction:'in', endpoint:ep_in, length:64}, function(e) {
       console.log("***** GOT "+e.data.byteLength+" bytes!");
@@ -145,6 +146,7 @@ function listen_next_packet() {
 
       listen_next_packet();
     });
+
 }
 
 
