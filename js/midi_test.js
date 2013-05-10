@@ -2,8 +2,11 @@
 
 
 var requestButtonGN = document.getElementById("requestPermissionGN");
-var raw_packet = document.getElementById('raw_packet');
 var note_info = document.getElementById('note_info');
+var raw = [ document.getElementById('raw0'),
+			document.getElementById('raw1'),
+			document.getElementById('raw2'),
+			document.getElementById('raw3')];
 
 
 var audioContext;
@@ -14,7 +17,12 @@ var activeNotes = new Object();
 
 function midiEvent(cin, m0, m1, m2) {
     //console.log(cin+" "+m0+" "+m1+" "+m2);
-    raw_packet.innerText = "RAW " + (d2h(cin)+" "+
+
+    for (var i=raw.length-1; i>0; i--) {
+    	raw[i].innerText = raw[i-1].innerText;
+    }
+
+    raw[0].innerText = "RAW " + (d2h(cin)+" "+
     					d2h(m0)+" "+
     					d2h(m1)+" "+
     					d2h(m2));
@@ -39,7 +47,7 @@ function midiEvent(cin, m0, m1, m2) {
       		oscillator.frequency.value = f;
       		oscillator.noteOn && oscillator.noteOn(0);
       		activeNotes[m1] = oscillator;
-        	note_info.innerText = (" ON key="+m1+" vel="+m2+"  freq="+f);
+        	note_info.innerText = (" key:"+m1+"  "+f+" Hz  velocity:"+m2+"/127");
 
         }
         break;
