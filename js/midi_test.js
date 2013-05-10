@@ -2,6 +2,9 @@
 
 
 var requestButtonGN = document.getElementById("requestPermissionGN");
+var raw_packet = document.getElementById('raw_packet');
+var note_info = document.getElementById('note_info');
+
 
 var audioContext;
 var freqMap;
@@ -10,7 +13,11 @@ var synth_oscillator_type = 'square';
 var activeNotes = new Object();
 
 function midiEvent(cin, m0, m1, m2) {
-    console.log(cin+" "+m0+" "+m1+" "+m2);
+    //console.log(cin+" "+m0+" "+m1+" "+m2);
+    raw_packet.innerText = "RAW " + (d2h(cin)+" "+
+    					d2h(m0)+" "+
+    					d2h(m1)+" "+
+    					d2h(m2));
     switch(m0 >> 4) {
       case 0x9: // note ON
       	{
@@ -32,7 +39,7 @@ function midiEvent(cin, m0, m1, m2) {
       		oscillator.frequency.value = f;
       		oscillator.noteOn && oscillator.noteOn(0);
       		activeNotes[m1] = oscillator;
-        	console.log(" ON key="+m1+" vel="+m2+"  freq="+f);
+        	note_info.innerText = (" ON key="+m1+" vel="+m2+"  freq="+f);
 
         }
         break;
@@ -54,12 +61,9 @@ function midiEvent(cin, m0, m1, m2) {
 }
 
 requestButtonGN.addEventListener('click', function() {
+
 	usbmidi_driver_init(0x09e8, 0x0076, midiEvent); // AKAI LPK25
-	
-
-	// start the audio context
 	audioContext = new webkitAudioContext();
-
 
     // build the frequency map.
 	var freqs = [
